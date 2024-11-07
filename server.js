@@ -15,8 +15,7 @@ app.use(express.json());
 
 // Connect to patient_db
 const patientDB = mongoose.createConnection('mongodb://localhost:27017/patient_db', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  connectTimeoutMS: 20000,
 });
 const PatientModel = patientDB.model('Patient', Patient.schema);
 
@@ -24,7 +23,6 @@ const PatientModel = patientDB.model('Patient', Patient.schema);
 app.get('/patients', async (req, res) => {
   try {
     const patients = await PatientModel.find();
-    console.log(patients);
     res.json(patients);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -34,23 +32,71 @@ app.get('/patients', async (req, res) => {
 // Get a single patient with clinical data
 app.get('/patients/:id', async (req, res) => {
   try {
-    const patient = await Patient.findById(req.params.id);
+    const patient = await PatientModel.findById(req.params.id);
     if (!patient) return res.status(404).json({ message: "Patient not found" });
 
-    // Fetch all of this patient's clinical data
-    const clinicalData = await Clinical.find({ patient_id: patient._id });
+    // TODO: Fetch all of this patient's clinical data
     
-    res.json({ patient, clinicalData });
+    res.json({ patient });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Connect to user_db
-const userDB = mongoose.createConnection('mongodb://localhost:27017/user_db', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+// Add a new Patient
+app.post('/patients', async (req, res) => {
+  // Get the values from body
+  const {
+    patientId,
+    name,
+    age,
+    gender,
+    admissionDate,
+    condition,
+    phone,
+    email,
+    address,
+    emergencyContactPhone,
+    medicalHistory,
+    allergies,
+    bloodType
+  } = req.body;
+
+  try {
+    // Check if there is a duplicate patientId
+    const existingPatient = await PatientModel.findOne({ patientId });
+
+    if (existingPatient) {
+      return res.status(400).json({ message: 'Patient ID already exists' });
+    }
+
+    // Create a Patient object
+    const newPatient = new PatientModel({
+      patientId,
+      name,
+      age,
+      gender,
+      admissionDate,
+      condition,
+      phone,
+      email,
+      address,
+      emergencyContactPhone,
+      medicalHistory,
+      allergies,
+      bloodType
+    });
+
+    // Store to database
+    await newPatient.save();
+    res.status(201).json({ message: 'Patient created successfully', patient: newPatient });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
 });
+
+// Connect to user_db
+const userDB = mongoose.createConnection('mongodb://localhost:27017/user_db');
 const UserModel = userDB.model('User', User.schema);
 
 app.post('/login', async (req, res) => {
