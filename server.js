@@ -6,6 +6,7 @@ const cors = require('cors');
 const Patient = require('./models/Patient');
 const User = require('./models/user');
 const bcrypt = require('bcrypt');
+const Clinical = require('./models/Clinical');
 
 const app = express();
 const PORT = 3000;
@@ -122,9 +123,17 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Connect to user_db
+const clinicalDB = mongoose.createConnection('mongodb://localhost:27017/clinical_db');
+const ClinicalModel = clinicalDB.model('Clinical', Clinical.schema);
+
 // Add new clinical measurement
 app.post('/clinical', async (req, res) => {
-  const newClinical = new Clinical(req.body);
+  const newClinical = new ClinicalModel({
+    ...req.body,
+    dateTime: new Date()  // Use the current date and time
+  });
+
   try {
     await newClinical.save();
     res.status(201).json(newClinical);
@@ -132,6 +141,8 @@ app.post('/clinical', async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+
+// TODO: Get clinical measurement
 
 // Start the server
 app.listen(PORT, () => {
